@@ -69,6 +69,9 @@ func (s *Service) Confirm(id string) error {
 }
 
 func (s *Service) Transfer(ctx context.Context, id, owner string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if strings.TrimSpace(owner) == "" {
 		return ErrInvalidOwner
 	}
