@@ -43,7 +43,7 @@ func (s *Store) Update(value *Reservation) error {
 	if _, ok := s.items[value.ID]; !ok {
 		return ErrNotFound
 	}
-	s.items[value.ID] = value
+	s.items[value.ID] = cloneReservation(value)
 	return nil
 }
 
