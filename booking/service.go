@@ -117,7 +117,7 @@ func (s *Service) Available(ctx context.Context, deskID string, start, end time.
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-	if strings.TrimSpace(deskID) == "" {
+	if deskID == "" {
 		return false, ErrInvalidDesk
 	}
 	if !start.Before(end) {
