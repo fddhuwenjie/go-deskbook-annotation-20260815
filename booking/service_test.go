@@ -340,6 +340,288 @@ func TestDeleteRespectsCanceledContext(t *testing.T) {
 	}
 }
 
+func TestAvailableRespectsCanceledContext(t *testing.T) {
+	service := NewService(NewStore())
+	start := reservationFixture("r1", "desk-1", "alice", 9).Start
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := service.Available(ctx, "desk-1", start, start.Add(time.Hour)); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Available error=%v, want context.Canceled", err)
+	}
+}
+
+func TestAvailableRejectsZeroLengthInterval(t *testing.T) {
+	service := NewService(NewStore())
+	start := reservationFixture("r1", "desk-1", "alice", 9).Start
+	if _, err := service.Available(context.Background(), "desk-1", start, start); !errors.Is(err, ErrInvalidInterval) {
+		t.Fatalf("Available error=%v, want ErrInvalidInterval", err)
+	}
+}
+
+func TestAvailableRejectsWhitespaceDesk(t *testing.T) {
+	service := NewService(NewStore())
+	start := reservationFixture("r1", "desk-1", "alice", 9).Start
+	if _, err := service.Available(context.Background(), "   ", start, start.Add(time.Hour)); !errors.Is(err, ErrInvalidDesk) {
+		t.Fatalf("Available error=%v, want ErrInvalidDesk", err)
+	}
+}
+
+func TestAvailableIgnoresCancelledReservation(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	value.Status = StatusCancelled
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	available, err := NewService(store).Available(context.Background(), "desk-1", value.Start, value.End)
+	if err != nil || !available {
+		t.Fatalf("Available=%v error=%v, want true and nil", available, err)
+	}
+}
+
+func TestAvailableAllowsAdjacentInterval(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	available, err := NewService(store).Available(context.Background(), "desk-1", value.End, value.End.Add(time.Hour))
+	if err != nil || !available {
+		t.Fatalf("Available=%v error=%v, want true and nil", available, err)
+	}
+}
+
+func TestReserveBatchRejectsEmptyBatch(t *testing.T) {
+	service := NewService(NewStore())
+	if err := service.ReserveBatch(context.Background(), nil); !errors.Is(err, ErrEmptyBatch) {
+		t.Fatalf("ReserveBatch error=%v, want ErrEmptyBatch", err)
+	}
+}
+
+func TestReserveBatchDoesNotPartiallyCreate(t *testing.T) {
+	store := NewStore()
+	service := NewService(store)
+	existing := reservationFixture("existing", "desk-1", "owner", 10)
+	if err := store.Create(&existing); err != nil {
+		t.Fatal(err)
+	}
+	values := []Reservation{
+		reservationFixture("r1", "desk-2", "alice", 9),
+		reservationFixture("r2", "desk-1", "bob", 10),
+	}
+	if err := service.ReserveBatch(context.Background(), values); !errors.Is(err, ErrConflict) {
+		t.Fatalf("ReserveBatch error=%v, want ErrConflict", err)
+	}
+	if _, err := store.Get("r1"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("first reservation persisted after failed batch: %v", err)
+	}
+}
+
+func TestReserveBatchDetectsInternalConflict(t *testing.T) {
+	store := NewStore()
+	service := NewService(store)
+	values := []Reservation{
+		reservationFixture("r1", "desk-1", "alice", 9),
+		reservationFixture("r2", "desk-1", "bob", 9),
+	}
+	if err := service.ReserveBatch(context.Background(), values); !errors.Is(err, ErrConflict) {
+		t.Fatalf("ReserveBatch error=%v, want ErrConflict", err)
+	}
+}
+
+func TestReserveBatchResetsManagedFields(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	value.Status = StatusConfirmed
+	value.RetryCount = 7
+	if err := NewService(store).ReserveBatch(context.Background(), []Reservation{value}); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := store.Get("r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != StatusPending || stored.RetryCount != 0 {
+		t.Fatalf("status=%q retry=%d, want pending and 0", stored.Status, stored.RetryCount)
+	}
+}
+
+func TestReserveBatchNormalizesTextFields(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("  r1  ", "  desk-1  ", "  alice  ", 9)
+	if err := NewService(store).ReserveBatch(context.Background(), []Reservation{value}); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := store.Get("r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.ID != "r1" || stored.DeskID != "desk-1" || stored.Owner != "alice" {
+		t.Fatalf("stored fields=%q/%q/%q, want normalized values", stored.ID, stored.DeskID, stored.Owner)
+	}
+}
+
+func TestSwapOwnersRespectsCanceledContext(t *testing.T) {
+	store := NewStore()
+	for _, value := range []Reservation{
+		reservationFixture("r1", "desk-1", "alice", 9),
+		reservationFixture("r2", "desk-2", "bob", 10),
+	} {
+		current := value
+		if err := store.Create(&current); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := NewService(store).SwapOwners(ctx, "r1", "r2"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("SwapOwners error=%v, want context.Canceled", err)
+	}
+	left, _ := store.Get("r1")
+	if left.Owner != "alice" {
+		t.Fatalf("left owner=%q, want alice", left.Owner)
+	}
+}
+
+func TestSwapOwnersMissingRightLeavesLeftUnchanged(t *testing.T) {
+	store := NewStore()
+	left := reservationFixture("r1", "desk-1", "alice", 9)
+	if err := store.Create(&left); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).SwapOwners(context.Background(), "r1", "missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("SwapOwners error=%v, want ErrNotFound", err)
+	}
+	stored, _ := store.Get("r1")
+	if stored.Owner != "alice" {
+		t.Fatalf("left owner=%q, want alice", stored.Owner)
+	}
+}
+
+func TestSwapOwnersRejectsCancelledReservation(t *testing.T) {
+	store := NewStore()
+	left := reservationFixture("r1", "desk-1", "alice", 9)
+	right := reservationFixture("r2", "desk-2", "bob", 10)
+	right.Status = StatusCancelled
+	if err := store.Create(&left); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(&right); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).SwapOwners(context.Background(), "r1", "r2"); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("SwapOwners error=%v, want ErrInvalidState", err)
+	}
+}
+
+func TestSwapOwnersSameReservationIsNoOp(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).SwapOwners(context.Background(), "r1", "r1"); err != nil {
+		t.Fatalf("SwapOwners error=%v, want nil", err)
+	}
+	stored, _ := store.Get("r1")
+	if stored.Owner != "alice" {
+		t.Fatalf("owner=%q, want alice", stored.Owner)
+	}
+}
+
+func TestExtendRejectsZeroDuration(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).Extend(context.Background(), "r1", 0); !errors.Is(err, ErrInvalidInterval) {
+		t.Fatalf("Extend error=%v, want ErrInvalidInterval", err)
+	}
+	stored, _ := store.Get("r1")
+	if !stored.End.Equal(value.End) {
+		t.Fatalf("end=%v, want %v", stored.End, value.End)
+	}
+}
+
+func TestExtendRejectsCancelledReservation(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	value.Status = StatusCancelled
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).Extend(context.Background(), "r1", time.Hour); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("Extend error=%v, want ErrInvalidState", err)
+	}
+}
+
+func TestExtendDoesNotConflictWithItself(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).Extend(context.Background(), "r1", 30*time.Minute); err != nil {
+		t.Fatalf("Extend error=%v, want nil", err)
+	}
+}
+
+func TestExtendIgnoresCancelledReservation(t *testing.T) {
+	store := NewStore()
+	active := reservationFixture("r1", "desk-1", "alice", 9)
+	cancelled := reservationFixture("r2", "desk-1", "bob", 10)
+	cancelled.Status = StatusCancelled
+	if err := store.Create(&active); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(&cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewService(store).Extend(context.Background(), "r1", time.Hour); err != nil {
+		t.Fatalf("Extend error=%v, want nil", err)
+	}
+}
+
+func TestPurgeCancelledKeepsBoundaryReservation(t *testing.T) {
+	store := NewStore()
+	earlier := reservationFixture("earlier", "desk-1", "alice", 9)
+	earlier.Status = StatusCancelled
+	boundary := reservationFixture("boundary", "desk-2", "bob", 10)
+	boundary.Status = StatusCancelled
+	if err := store.Create(&earlier); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(&boundary); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := NewService(store).PurgeCancelled(context.Background(), boundary.End)
+	if err != nil || deleted != 1 {
+		t.Fatalf("deleted=%d error=%v, want 1 and nil", deleted, err)
+	}
+	if _, err := store.Get("boundary"); err != nil {
+		t.Fatalf("boundary reservation removed: %v", err)
+	}
+}
+
+func TestListByStatusReturnsCopies(t *testing.T) {
+	store := NewStore()
+	value := reservationFixture("r1", "desk-1", "alice", 9)
+	value.Status = StatusConfirmed
+	if err := store.Create(&value); err != nil {
+		t.Fatal(err)
+	}
+	list := store.ListByStatus(StatusConfirmed)
+	if len(list) != 1 {
+		t.Fatalf("len=%d, want 1", len(list))
+	}
+	list[0].Owner = "mallory"
+	stored, _ := store.Get("r1")
+	if stored.Owner != "alice" {
+		t.Fatalf("stored owner=%q, want alice", stored.Owner)
+	}
+}
+
 func reservationFixture(id, deskID, owner string, hour int) Reservation {
 	start := time.Date(2026, 8, 15, hour, 0, 0, 0, time.UTC)
 	return Reservation{ID: id, DeskID: deskID, Owner: owner, Start: start, End: start.Add(time.Hour)}

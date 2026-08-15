@@ -4,9 +4,13 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 )
 
-var ErrNotFound = errors.New("reservation not found")
+var (
+	ErrNotFound      = errors.New("reservation not found")
+	ErrAlreadyExists = errors.New("reservation already exists")
+)
 
 type Store struct {
 	mu    sync.RWMutex
@@ -21,7 +25,7 @@ func (s *Store) Create(value *Reservation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.items[value.ID]; exists {
-		return errors.New("reservation already exists")
+		return ErrAlreadyExists
 	}
 	s.items[value.ID] = cloneReservation(value)
 	return nil
@@ -81,6 +85,37 @@ func (s *Store) ListByOwner(owner string) []*Reservation {
 		return result[i].Start.Before(result[j].Start)
 	})
 	return result
+}
+
+func (s *Store) ListByStatus(status Status) []*Reservation {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*Reservation, 0)
+	for _, value := range s.items {
+		if value.Status == status {
+			result = append(result, cloneReservation(value))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Start.Equal(result[j].Start) {
+			return result[i].ID < result[j].ID
+		}
+		return result[i].Start.Before(result[j].Start)
+	})
+	return result
+}
+
+func (s *Store) PurgeCancelledBefore(cutoff time.Time) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deleted := 0
+	for id, value := range s.items {
+		if value.Status == StatusCancelled && value.End.Before(cutoff) {
+			delete(s.items, id)
+			deleted++
+		}
+	}
+	return deleted
 }
 
 func (s *Store) Delete(id string) error {
