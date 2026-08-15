@@ -95,6 +95,9 @@ func (s *Service) Reschedule(ctx context.Context, id string, start, end time.Tim
 		return err
 	}
 	for _, existing := range s.store.ListByDesk(value.DeskID) {
+		if existing.ID == id {
+			continue
+		}
 		if existing.Status != StatusCancelled && overlaps(existing.Start, existing.End, start, end) {
 			return ErrConflict
 		}
