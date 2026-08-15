@@ -93,7 +93,7 @@ func (s *Store) ListByStatus(status Status) []*Reservation {
 	result := make([]*Reservation, 0)
 	for _, value := range s.items {
 		if value.Status == status {
-			result = append(result, value)
+			result = append(result, cloneReservation(value))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
