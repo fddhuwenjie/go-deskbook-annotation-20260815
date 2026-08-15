@@ -124,7 +124,7 @@ func (s *Service) Available(ctx context.Context, deskID string, start, end time.
 		return false, ErrInvalidInterval
 	}
 	for _, existing := range s.store.ListByDesk(deskID) {
-		if existing.Status != StatusCancelled && overlaps(existing.Start, existing.End, start, end) {
+		if existing.Status != StatusCancelled && !existing.Start.After(end) && !start.After(existing.End) {
 			return false, nil
 		}
 	}
