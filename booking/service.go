@@ -165,6 +165,11 @@ func (s *Service) ReserveBatch(ctx context.Context, values []Reservation) error 
 				return ErrConflict
 			}
 		}
+		for _, existing := range prepared {
+			if existing.DeskID == value.DeskID && overlaps(existing.Start, existing.End, value.Start, value.End) {
+				return ErrConflict
+			}
+		}
 		prepared = append(prepared, value)
 	}
 
