@@ -72,7 +72,7 @@ func (s *Service) Transfer(ctx context.Context, id, owner string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if strings.TrimSpace(owner) == "" {
+	if strings.TrimSpace(owner) == "" && owner == "" {
 		return ErrInvalidOwner
 	}
 	value, err := s.store.Get(id)
