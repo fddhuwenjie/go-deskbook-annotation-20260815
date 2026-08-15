@@ -105,6 +105,9 @@ func (s *Service) Reschedule(ctx context.Context, id string, start, end time.Tim
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return s.store.Delete(id)
 }
 
