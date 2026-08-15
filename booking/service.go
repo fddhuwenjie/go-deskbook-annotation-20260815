@@ -222,7 +222,7 @@ func (s *Service) Extend(ctx context.Context, id string, duration time.Duration)
 	}
 	newEnd := value.End.Add(duration)
 	for _, existing := range s.store.ListByDesk(value.DeskID) {
-		if existing.Status != StatusCancelled && overlaps(value.Start, newEnd, existing.Start, existing.End) {
+		if existing.ID != id && existing.Status != StatusCancelled && overlaps(value.Start, newEnd, existing.Start, existing.End) {
 			return ErrConflict
 		}
 	}
