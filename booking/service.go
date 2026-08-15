@@ -182,6 +182,9 @@ func (s *Service) ReserveBatch(ctx context.Context, values []Reservation) error 
 }
 
 func (s *Service) SwapOwners(ctx context.Context, leftID, rightID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	left, err := s.store.Get(leftID)
 	if err != nil {
 		return err
