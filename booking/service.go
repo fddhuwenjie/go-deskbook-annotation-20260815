@@ -196,9 +196,6 @@ func (s *Service) SwapOwners(ctx context.Context, leftID, rightID string) error 
 	if err != nil {
 		return err
 	}
-	if left.Status == StatusCancelled || right.Status == StatusCancelled {
-		return ErrInvalidState
-	}
 	left.Owner, right.Owner = right.Owner, left.Owner
 	if err := s.store.Update(left); err != nil {
 		return err
