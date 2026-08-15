@@ -34,7 +34,7 @@ func (s *Store) Get(id string) (*Reservation, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return cloneReservation(value), nil
+	return value, nil
 }
 
 func (s *Store) Update(value *Reservation) error {
