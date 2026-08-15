@@ -192,6 +192,11 @@ func (s *Service) SwapOwners(ctx context.Context, leftID, rightID string) error 
 	if leftID == rightID {
 		return nil
 	}
+	leftOwner := left.Owner
+	left.Owner = ""
+	if err := s.store.Update(left); err != nil {
+		return err
+	}
 	right, err := s.store.Get(rightID)
 	if err != nil {
 		return err
@@ -199,7 +204,7 @@ func (s *Service) SwapOwners(ctx context.Context, leftID, rightID string) error 
 	if left.Status == StatusCancelled || right.Status == StatusCancelled {
 		return ErrInvalidState
 	}
-	left.Owner, right.Owner = right.Owner, left.Owner
+	left.Owner, right.Owner = right.Owner, leftOwner
 	if err := s.store.Update(left); err != nil {
 		return err
 	}
