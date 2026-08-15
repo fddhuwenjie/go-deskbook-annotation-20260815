@@ -58,7 +58,7 @@ func (s *Store) ListByDesk(deskID string) []*Reservation {
 	}
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].Start.Equal(result[j].Start) {
-			return result[i].ID > result[j].ID
+			return result[i].ID < result[j].ID
 		}
 		return result[i].Start.Before(result[j].Start)
 	})
