@@ -58,9 +58,6 @@ func (s *Service) Confirm(id string) error {
 	if err != nil {
 		return err
 	}
-	if value.Status == StatusConfirmed {
-		return nil
-	}
 	if value.Status != StatusPending {
 		return ErrInvalidState
 	}
