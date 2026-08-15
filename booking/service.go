@@ -53,11 +53,11 @@ func (s *Service) Cancel(ctx context.Context, id string) error {
 
 func (s *Service) Confirm(id string) error {
 	value, err := s.store.Get(id)
-	if value.Status != StatusPending {
-		return ErrInvalidState
-	}
 	if err != nil {
 		return err
+	}
+	if value.Status != StatusPending {
+		return ErrInvalidState
 	}
 	value.Status = StatusConfirmed
 	return s.store.Update(value)
