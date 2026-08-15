@@ -190,7 +190,7 @@ func (s *Service) SwapOwners(ctx context.Context, leftID, rightID string) error 
 		return err
 	}
 	if leftID == rightID {
-		return nil
+		return ErrInvalidState
 	}
 	right, err := s.store.Get(rightID)
 	if err != nil {
