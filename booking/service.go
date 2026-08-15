@@ -143,9 +143,6 @@ func (s *Service) ReserveBatch(ctx context.Context, values []Reservation) error 
 	seen := make(map[string]struct{}, len(values))
 	for _, input := range values {
 		value := input
-		value.ID = strings.TrimSpace(value.ID)
-		value.DeskID = strings.TrimSpace(value.DeskID)
-		value.Owner = strings.TrimSpace(value.Owner)
 		if value.ID == "" || value.DeskID == "" || value.Owner == "" || !value.Start.Before(value.End) {
 			return ErrInvalidInterval
 		}
