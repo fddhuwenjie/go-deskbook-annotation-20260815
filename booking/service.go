@@ -114,9 +114,6 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 }
 
 func (s *Service) Available(ctx context.Context, deskID string, start, end time.Time) (bool, error) {
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
 	if strings.TrimSpace(deskID) == "" {
 		return false, ErrInvalidDesk
 	}
