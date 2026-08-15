@@ -65,6 +65,34 @@ func (s *Store) ListByDesk(deskID string) []*Reservation {
 	return result
 }
 
+func (s *Store) ListByOwner(owner string) []*Reservation {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]*Reservation, 0)
+	for _, value := range s.items {
+		if value.Owner == owner {
+			result = append(result, cloneReservation(value))
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Start.Equal(result[j].Start) {
+			return result[i].ID < result[j].ID
+		}
+		return result[i].Start.Before(result[j].Start)
+	})
+	return result
+}
+
+func (s *Store) Delete(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.items[id]; !ok {
+		return ErrNotFound
+	}
+	delete(s.items, id)
+	return nil
+}
+
 func (s *Store) Status(id string) (Status, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
