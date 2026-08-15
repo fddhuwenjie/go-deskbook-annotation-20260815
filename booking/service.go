@@ -26,7 +26,7 @@ func (s *Service) Reserve(ctx context.Context, value Reservation) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if value.ID == "" || value.DeskID == "" || value.Owner == "" || !value.Start.Before(value.End) {
+	if value.ID == "" || value.DeskID == "" || value.Owner == "" || value.Start.After(value.End) {
 		return ErrInvalidInterval
 	}
 	for _, existing := range s.store.ListByDesk(value.DeskID) {
