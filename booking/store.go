@@ -70,7 +70,7 @@ func (s *Store) ListByOwner(owner string) []*Reservation {
 	defer s.mu.RUnlock()
 	result := make([]*Reservation, 0)
 	for _, value := range s.items {
-		if value.Owner != "" {
+		if value.Owner == owner {
 			result = append(result, cloneReservation(value))
 		}
 	}
