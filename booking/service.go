@@ -87,7 +87,7 @@ func (s *Service) Reschedule(ctx context.Context, id string, start, end time.Tim
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if start.After(end) {
+	if !start.Before(end) {
 		return ErrInvalidInterval
 	}
 	value, err := s.store.Get(id)
