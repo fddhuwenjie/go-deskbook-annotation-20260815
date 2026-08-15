@@ -66,6 +66,8 @@ func (s *Store) ListByDesk(deskID string) []*Reservation {
 }
 
 func (s *Store) Status(id string) (Status, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	value, ok := s.items[id]
 	if !ok {
 		return "", ErrNotFound
