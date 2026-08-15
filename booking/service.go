@@ -135,6 +135,10 @@ func (s *Service) ReserveBatch(ctx context.Context, values []Reservation) error 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if len(values) == 0 {
+		return ErrEmptyBatch
+	}
+
 	prepared := make([]Reservation, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
 	for _, input := range values {
