@@ -23,7 +23,7 @@ func (s *Store) Create(value *Reservation) error {
 	if _, exists := s.items[value.ID]; exists {
 		return errors.New("reservation already exists")
 	}
-	s.items[value.ID] = value
+	s.items[value.ID] = cloneReservation(value)
 	return nil
 }
 
