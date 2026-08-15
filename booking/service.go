@@ -37,9 +37,6 @@ func (s *Service) Reserve(ctx context.Context, value Reservation) error {
 }
 
 func (s *Service) Cancel(ctx context.Context, id string) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
 	value, err := s.store.Get(id)
 	if err != nil {
 		return err
