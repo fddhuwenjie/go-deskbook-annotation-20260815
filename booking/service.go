@@ -30,7 +30,7 @@ func (s *Service) Reserve(ctx context.Context, value Reservation) error {
 		return ErrInvalidInterval
 	}
 	for _, existing := range s.store.ListByDesk(value.DeskID) {
-		if existing.Status != StatusCancelled && overlaps(existing.Start, existing.End, value.Start, value.End) {
+		if overlaps(existing.Start, existing.End, value.Start, value.End) {
 			return ErrConflict
 		}
 	}
