@@ -158,7 +158,7 @@ func (s *Service) ReserveBatch(ctx context.Context, values []Reservation) error 
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		value.Status = input.Status
+		value.Status = StatusPending
 		value.RetryCount = 0
 		for _, existing := range s.store.ListByDesk(value.DeskID) {
 			if existing.Status != StatusCancelled && overlaps(existing.Start, existing.End, value.Start, value.End) {
