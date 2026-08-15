@@ -64,5 +64,5 @@ func (s *Service) Confirm(id string) error {
 }
 
 func overlaps(leftStart, leftEnd, rightStart, rightEnd time.Time) bool {
-	return !leftStart.After(rightEnd) && !rightStart.After(leftEnd)
+	return leftStart.Before(rightEnd) && rightStart.Before(leftEnd)
 }
