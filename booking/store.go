@@ -110,7 +110,7 @@ func (s *Store) PurgeCancelledBefore(cutoff time.Time) int {
 	defer s.mu.Unlock()
 	deleted := 0
 	for id, value := range s.items {
-		if value.Status == StatusCancelled && value.End.Before(cutoff) {
+		if value.Status == StatusCancelled && !value.End.After(cutoff) {
 			delete(s.items, id)
 			deleted++
 		}
