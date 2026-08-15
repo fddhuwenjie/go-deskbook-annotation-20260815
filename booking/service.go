@@ -120,7 +120,7 @@ func (s *Service) Available(ctx context.Context, deskID string, start, end time.
 	if strings.TrimSpace(deskID) == "" {
 		return false, ErrInvalidDesk
 	}
-	if start.After(end) {
+	if !start.Before(end) {
 		return false, ErrInvalidInterval
 	}
 	for _, existing := range s.store.ListByDesk(deskID) {
