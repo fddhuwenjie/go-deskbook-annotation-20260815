@@ -71,7 +71,7 @@ func (s *Store) ListByOwner(owner string) []*Reservation {
 	result := make([]*Reservation, 0)
 	for _, value := range s.items {
 		if value.Owner == owner {
-			result = append(result, value)
+			result = append(result, cloneReservation(value))
 		}
 	}
 	sort.Slice(result, func(i, j int) bool {
