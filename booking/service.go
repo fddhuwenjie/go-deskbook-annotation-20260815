@@ -210,7 +210,7 @@ func (s *Service) Extend(ctx context.Context, id string, duration time.Duration)
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if duration < 0 {
+	if duration <= 0 {
 		return ErrInvalidInterval
 	}
 	value, err := s.store.Get(id)
